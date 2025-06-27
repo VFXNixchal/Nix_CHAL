@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Camera Shop</title>
+<style>
+  body {
+    margin: 0; background: #000; color: #fff; font-family: Arial, sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  .sidebar {
+    width: 260px; border-right: 1px solid #444; padding: 1rem;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .sidebar h1 {
+    display: flex; align-items: center; font-size: 1.5rem; margin-bottom: 1rem;
+    gap: 0.5rem; color: gold;
+  }
+  button {
+    background: transparent; border: none; color: #ddd; padding: 0.6rem 1rem;
+    cursor: pointer; width: 100%; text-align: left; margin-bottom: 0.5rem;
+    font-size: 1rem; border-radius: 4px;
+  }
+  button.active, button:hover {
+    background: #333; color: red;
+  }
+  .admin-login input {
+    width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 4px;
+    border: none; background: #222; color: #eee;
+  }
+  .admin-login button {
+    background: green; margin-top: 0.3rem;
+  }
+  .main {
+    flex: 1; overflow-y: auto; padding: 1rem;
+  }
+  .products-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .product-card {
+    background: #111; border-radius: 8px; padding: 0.8rem; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .product-card img {
+    width: 100%; height: 140px; object-fit: cover; border-radius: 6px;
+  }
+  .product-card h3 {
+    color: red; margin: 0.5rem 0 0.2rem;
+  }
+  .product-card p {
+    font-size: 0.9rem; color: #aaa; margin: 0.2rem 0;
+  }
+  .product-card button.remove-btn {
+    background: darkred; color: white; width: 100%; margin-top: 0.5rem;
+    border-radius: 4px; border: none; cursor: pointer;
+  }
+  .cart-item {
+    display: flex; align-items: center; background: #111; padding: 0.5rem;
+    border-radius: 6px; margin-bottom: 0.5rem;
+  }
+  .cart-item img {
+    width: 60px; height: 60px; object-fit: cover; border-radius: 4px;
+  }
+  .cart-info {
+    flex: 1; margin-left: 1rem;
+  }
+  .cart-info h4 {
+    margin: 0; color: red;
+  }
+  .cart-info p {
+    margin: 0; font-size: 0.9rem; color: #bbb;
+  }
+  .cart-item button {
+    background: darkred; border: none; color: white; padding: 0.3rem 0.6rem;
+    cursor: pointer; border-radius: 4px;
+  }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex;
+    justify-content: center; align-items: center; z-index: 1000;
+  }
+  .modal-content {
+    background: #222; padding: 1rem; border-radius: 8px; max-width: 600px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-content img {
+    width: 100px; height: 100px; object-fit: cover; margin: 0.2rem;
+    border-radius: 6px;
+  }
+  .modal-close {
+    background: red; color: white; border: none; padding: 0.4rem 1rem;
+    margin-bottom: 1rem; cursor: pointer; border-radius: 6px;
+  }
+  form.add-product input, form.add-product select, form.add-product textarea {
+    width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border-radius: 4px;
+    border: none; background: #222; color: #eee;
+  }
+  form.add-product button {
+    background: green; border: none; padding: 0.6rem; border-radius: 4px;
+    cursor: pointer; width: 100%;
+  }
+  h2, h3 {
+    margin-top: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h1>Camera Nepal</h1>
+  <div id="nav-buttons">
+    <button data-page="Home" class="active">🏠 Home</button>
+    <button data-page="All">All</button>
+    <button data-page="Camera">Camera</button>
+    <button data-page="Lens">Lens</button>
+    <button data-page="Accessories">Accessories</button>
+    <button data-page="Cart">🛒 Cart</button>
+  </div>
+
+  <div id="admin-section" class="admin-login">
+    <input type="text" id="admin-id" placeholder="Admin ID" />
+    <input type="password" id="admin-pass" placeholder="Password" />
+    <button id="admin-login-btn">Admin Login</button>
+  </div>
+  <button id="admin-logout-btn" style="display:none; background:darkred; margin-top:0.5rem;">Logout</button>
+</div>
+
+<div class="main" id="main-content">
+  <!-- Content loaded by JS -->
+</div>
+
+<!-- Modal -->
+<div id="product-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <button class="modal-close" id="modal-close-btn">Close</button>
+    <h3 id="modal-title" style="color:red;"></h3>
+    <div id="modal-images" style="display:flex; flex-wrap:wrap;"></div>
+    <p id="modal-description" style="color:#ccc;"></p>
+    <p id="modal-price" style="color:red; font-weight:bold;"></p>
+    <p id="modal-specs" style="color:#ccc;"></p>
+    <button id="modal-add-cart-btn" style="background:green; color:white; padding:0.5rem; border:none; border-radius:6px; cursor:pointer;">Add to Cart</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const defaultPoster = "https://images.unsplash.com/photo-1519183071298-a2962cc11f8a?auto=format&fit=crop&w=800&q=80";
+  const categories = ["All", "Camera", "Lens", "Accessories"];
+  
+  // State
+  let activePage = "Home";
+  let isAdmin = false;
+  let products = [];
+  let cart = [];
+  let selectedProduct = null;
+
+  // DOM refs
+  const main = document.getElementById("main-content");
+  const navButtons = document.querySelectorAll("#nav-buttons button");
+  const adminSection = document.getElementById("admin-section");
+  const adminLoginBtn = document.getElementById("admin-login-btn");
+  const adminLogoutBtn = document.getElementById("admin-logout-btn");
+  const adminIdInput = document.getElementById("admin-id");
+  const adminPassInput = document.getElementById("admin-pass");
+  const modal = document.getElementById("product-modal");
+  const modalCloseBtn = document.getElementById("modal-close-btn");
+  const modalTitle = document.getElementById("modal-title");
+  const modalImages = document.getElementById("modal-images");
+  const modalDescription = document.getElementById("modal-description");
+  const modalPrice = document.getElementById("modal-price");
+  const modalSpecs = document.getElementById("modal-specs");
+  const modalAddCartBtn = document.getElementById("modal-add-cart-btn");
+
+  // Load from localStorage
+  function loadData() {
+    const savedProducts = localStorage.getItem("cameraProducts");
+    const savedCart = localStorage.getItem("cameraCart");
+    products = savedProducts ? JSON.parse(savedProducts) : [];
+    cart = savedCart ? JSON.parse(savedCart) : [];
+  }
+  // Save to localStorage
+  function saveData() {
+    localStorage.setItem("cameraProducts", JSON.stringify(products));
+    localStorage.setItem("cameraCart", JSON.stringify(cart));
+  }
+
+  // Render nav active state
+  function updateNavActive() {
+    navButtons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.page === activePage);
+    });
+  }
+
+  // Render main content based on activePage
+  function render() {
+    updateNavActive();
+    main.innerHTML = "";
+    if (activePage === "Home") {
+      renderHome();
+    } else if (activePage === "Cart") {
+      renderCart();
+    } else if (categories.includes(activePage)) {
+      renderCategory(activePage);
+    }
+  }
+
+  // Home page
+  function renderHome() {
+    const container = document.createElement("div");
+    container.style.textAlign = "center";
+    const poster = document.createElement("img");
+    poster.src = defaultPoster;
+    poster.alt = "Shop Poster";
+    poster.style.maxWidth = "100%";
+    poster.style.borderRadius = "12px";
+    poster.style.marginBottom = "1rem";
+    container.appendChild(poster);
+
+    if (isAdmin) {
+      const posterInput = document.createElement("input");
+      posterInput.type = "text";
+      posterInput.placeholder = "Change poster image URL";
+      posterInput.style.width = "100%";
+      posterInput.style.marginBottom = "1rem";
+      posterInput.style.padding = "0.5rem";
+      posterInput.style.borderRadius = "6px";
+      posterInput.style.border = "none";
+      posterInput.style.backgroundColor = "#222";
+      posterInput.style.color = "#eee";
+
+      posterInput.addEventListener("change", () => {
+        if (posterInput.value.trim()) {
+          poster.src = posterInput.value.trim();
+        } else {
+          poster.src = defaultPoster;
+        }
+      });
+      container.appendChild(posterInput);
+    }
+
+    const heading = document.createElement("h1");
+    heading.textContent = "Welcome to Nix_chal Camera Shop";
+    heading.style.marginBottom = "0.3rem";
+    heading.style.fontSize = "2rem";
+    container.appendChild(heading);
+
+    const subtitle = document.createElement("p");
+    subtitle.textContent = "Explore our best cameras, lenses, and accessories.";
+    subtitle.style.color = "#aaa";
+    container.appendChild(subtitle);
+
+    main.appendChild(container);
+  }
+
+  // Render cart page
+  function renderCart() {
+    const container = document.createElement("div");
+
+    const heading = document.createElement("h2");
+    heading.textContent = "Your Shopping Cart";
+    container.appendChild(heading);
+
+    if (cart.length === 0) {
+      const emptyMsg = document.createElement("p");
+      emptyMsg.textContent = "Your cart is empty.";
+      emptyMsg.style.color = "#888";
+      container.appendChild(emptyMsg);
+    } else {
+      cart.forEach((item) => {
+        const cartItem = document.createElement("div");
+        cartItem.className = "cart-item";
+
+        const img = document.createElement("img");
+        img.src = item.imgs[0] || "";
+        img.alt = item.name;
+
+        const info = document.createElement("div");
+        info.className = "cart-info";
+
+        const name = document.createElement("h4");
+        name.textContent = item.name;
+
+        const specs = document.createElement("p");
+        specs.textContent = item.specs;
+
+        const price = document.createElement("p");
+        price.style.color = "red";
+        price.textContent = `Rs. ${item.price}`;
+
+        info.appendChild(name);
+        info.appendChild(specs);
+        info.appendChild(price);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", () => {
+          cart = cart.filter((c) => c.id !== item.id);
+          saveData();
+          render();
+        });
+
+        cartItem.appendChild(img);
+        cartItem.appendChild(info);
+        cartItem.appendChild(removeBtn);
+        container.appendChild(cartItem);
+      });
+    }
+    main.appendChild(container);
+  }
+
+  // Render product category page + add product form if admin
+  function renderCategory(cat) {
+    const container = document.createElement("div");
+    const heading = document.createElement("h2");
+    heading.textContent = `${cat} Products`;
+    container.appendChild(heading);
+
+    const filteredProducts =
+      cat === "All" ? products : products.filter((p) => p.category === cat);
+
+    if (filteredProducts.length === 0) {
+      const emptyMsg = document.createElement("p");
+      emptyMsg.textContent = "No products found.";
+      emptyMsg.style.color = "#888";
+      container.appendChild(emptyMsg);
+    } else {
+      const grid = document.createElement("div");
+      grid.className = "products-grid";
+
+      filteredProducts.forEach((prod) => {
+        const card = document.createElement("div");
+        card.className = "product-card";
+
+        const img = document.createElement("img");
+        img.src = prod.imgs[0] || "";
+        img.alt = prod.name;
+        card.appendChild(img);
+
+        const title = document.createElement("h3");
+        title.textContent = prod.name;
+        card.appendChild(title);
+
+        const price = document.createElement("p");
+        price.textContent = `Rs. ${prod.price}`;
+        card.appendChild(price);
+
+        const specs = document.createElement("p");
+        specs.textContent = prod.specs;
+        card.appendChild(specs);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove Product";
+        removeBtn.className = "remove-btn";
+        removeBtn.addEventListener("click", () => {
+          if (confirm(`Remove product "${prod.name}"?`)) {
+            products = products.filter((p) => p.id !== prod.id);
+            // Also remove from cart
+            cart = cart.filter((c) => c.id !== prod.id);
+            saveData();
+            render();
+          }
+        });
+        if (isAdmin) {
+          card.appendChild(removeBtn);
+        }
+
+        card.addEventListener("click", (e) => {
+          // Prevent clicking remove button triggering modal
+          if (e.target === removeBtn) return;
+          showProductModal(prod);
+        });
+
+        grid.appendChild(card);
+      });
+
+      container.appendChild(grid);
+    }
+
+    // Admin add product form
+    if (isAdmin) {
+      const form = document.createElement("form");
+      form.className = "add-product";
+
+      const headingForm = document.createElement("h3");
+      headingForm.textContent = "Add New Product";
+      form.appendChild(headingForm);
+
+      const inputs = [
+        { id: "name", placeholder: "Product Name", type: "text" },
+        { id: "price", placeholder: "Price (Rs.)", type: "number" },
+        { id: "specs", placeholder: "Specs", type: "text" },
+        { id: "description", placeholder: "Description", type: "textarea" },
+        { id: "category", placeholder: "Category", type: "select", options: categories.filter(c => c !== "All") },
+      ];
+
+      const inputElements = {};
+
+      inputs.forEach((inp) => {
+        let element;
+        if (inp.type === "textarea") {
+          element = document.createElement("textarea");
+          element.rows = 3;
+        } else if (inp.type === "select") {
+          element = document.createElement("select");
+          inp.options.forEach((opt) => {
+            const optionEl = document.createElement("option");
+            optionEl.value = opt;
+            optionEl.textContent = opt;
+            element.appendChild(optionEl);
+          });
+        } else {
+          element = document.createElement("input");
+          element.type = inp.type;
+          element.placeholder = inp.placeholder;
+        }
+        element.id = `newProduct_${inp.id}`;
+        form.appendChild(element);
+        inputElements[inp.id] = element;
+      });
+
+      // Image URLs inputs - default 3 inputs
+      const imgsDiv = document.createElement("div");
+      imgsDiv.style.marginBottom = "0.5rem";
+
+      const imgInputs = [];
+      for (let i = 0; i < 3; i++) {
+        const imgInput = document.createElement("input");
+        imgInput.type = "text";
+        imgInput.placeholder = `Image URL ${i + 1}`;
+        imgInput.style.width = "100%";
+        imgInput.style.marginBottom = "0.3rem";
+        imgInput.style.padding = "0.5rem";
+        imgInput.style.borderRadius = "4px";
+        imgInput.style.border = "none";
+        imgInput.style.backgroundColor = "#222";
+        imgInput.style.color = "#eee";
+        imgsDiv.appendChild(imgInput);
+        imgInputs.push(imgInput);
+      }
+      form.appendChild(imgsDiv);
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "submit";
+      addBtn.textContent = "Add Product";
+      form.appendChild(addBtn);
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const name = inputElements.name.value.trim();
+        const price = inputElements.price.value.trim();
+        const specs = inputElements.specs.value.trim();
+        const description = inputElements.description.value.trim();
+        const category = inputElements.category.value;
+        const imgs = imgInputs.map(input => input.value.trim()).filter(url => url !== "");
+
+        if (!name || !price || !specs || !description || !category || imgs.length === 0) {
+          alert("Please fill all fields and add at least one image URL.");
+          return;
+        }
+
+        const newProduct = {
+          id: Date.now().toString(),
+          name,
+          price,
+          specs,
+          description,
+          category,
+          imgs,
+        };
+        products.push(newProduct);
+        saveData();
+        render();
+        form.reset();
+        alert("Product added!");
+      });
+
+      container.appendChild(form);
+    }
+
+    main.appendChild(container);
+  }
+
+  // Show product modal
+  function showProductModal(product) {
+    selectedProduct = product;
+    modalTitle.textContent = product.name;
+    modalImages.innerHTML = "";
+    product.imgs.forEach((url) => {
+      const img = document.createElement("img");
+      img.src = url;
+      modalImages.appendChild(img);
+    });
+    modalDescription.textContent = product.description;
+    modalPrice.textContent = `Price: Rs. ${product.price}`;
+    modalSpecs.textContent = `Specs: ${product.specs}`;
+    modal.style.display = "flex";
+  }
+
+  // Add to cart from modal
+  modalAddCartBtn.addEventListener("click", () => {
+    if (!selectedProduct) return;
+    if (cart.find((c) => c.id === selectedProduct.id)) {
+      alert("Product already in cart.");
+    } else {
+      cart.push(selectedProduct);
+      saveData();
+      alert("Added to cart.");
+      modal.style.display = "none";
+      selectedProduct = null;
+    }
+  });
+
+  modalCloseBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+    selectedProduct = null;
+  });
+
+  // Nav button clicks
+  navButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activePage = btn.dataset.page;
+      render();
+    });
+  });
+
+  // Admin login/logout
+  adminLoginBtn.addEventListener("click", () => {
+    const id = adminIdInput.value.trim();
+    const pass = adminPassInput.value.trim();
+    if (id === "nixchal" && pass === "nixchal") {
+      isAdmin = true;
+      adminSection.style.display = "none";
+      adminLogoutBtn.style.display = "block";
+      alert("Admin logged in");
+      render();
+    } else {
+      alert("Invalid admin credentials");
+    }
+  });
+
+  adminLogoutBtn.addEventListener("click", () => {
+    isAdmin = false;
+    adminSection.style.display = "block";
+    adminLogoutBtn.style.display = "none";
+    adminIdInput.value = "";
+    adminPassInput.value = "";
+    alert("Logged out");
+    render();
+  });
+
+  // Initialize
+  loadData();
+  render();
+
+})();
+</script>
+</body>
+</html>
